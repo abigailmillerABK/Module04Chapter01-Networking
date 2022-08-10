@@ -135,12 +135,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\Downloads\main.cpp\main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="Buffer.h" />
     <ClInclude Include="User.h" />
     <ClInclude Include="Message.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
