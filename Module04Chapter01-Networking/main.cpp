@@ -17,19 +17,18 @@ void ClientInput(User& thisUser, ENetHost* client) {
         std::string text = "";
 
         if (thisUser.name == "") {
-            std::cout << "Please Sign in.\n" << "USERNAME: ";
             std::getline(std::cin, text);
             thisUser.name = text;
+            text = "SETUSER: " + text;
         }
         else {
-            std::cout << "\nWrite your message here\n";
+            
             std::getline(std::cin, text);
-            if (text == "q") {
+            if (text == "quit") {
                 isDone = true;
             }
             text = thisUser.name + ": " + text;
         }
-        system("CLS");
         message.message = text;
         Buffer* msgBuffer = message.Serialize();
         ENetPacket* packet = enet_packet_create(msgBuffer->data,
@@ -39,21 +38,27 @@ void ClientInput(User& thisUser, ENetHost* client) {
         enet_host_flush(client);
     }
 }
-void ServerOuput() {
+void ServerOuput(User& thisUser) {
     while (isDone == false) {
         ENetEvent event;
         /* Wait up to 1000 milliseconds for an event. */
         while (enet_host_service(client, &event, 1000) > 0)
         {
+            system("CLS");
             switch (event.type)
             {
             case ENET_EVENT_TYPE_RECEIVE:
-                cout << "A packet of length "
-                    << event.packet->dataLength << endl
-                    << "containing " << (char*)event.packet->data
+                cout << (char*)event.packet->data
                     << endl;
                 /* Clean up the packet now that we're done using it. */
                 enet_packet_destroy(event.packet);
+            }
+            if (thisUser.name == "") {
+                std::cout << "Please Sign in.\n" << "USERNAME: ";
+            }
+            if (thisUser.name != "")
+            {
+                std::cout << "\nWrite your message here\n";
             }
         }
     }
@@ -105,6 +110,7 @@ int main(int argc, char** argv)
     cin >> UserInput;
     if (UserInput == 1)
     {
+        std::string textLog;
         if (!CreateServer())
         {
             fprintf(stderr,
@@ -133,10 +139,7 @@ int main(int argc, char** argv)
                         ENetPacket* packet = enet_packet_create("hello",
                             strlen("hello") + 1,
                             ENET_PACKET_FLAG_RELIABLE);
-                        /* Extend the packet so and append the string "foo", so it now */
-                        /* contains "packetfoo\0"                                      */
-                        //enet_packet_resize(packet, strlen("packetfoo") + 1);
-                        //strcpy(&packet->data[strlen("packet")], "foo");
+
                         /* Send the packet to the peer over channel id 0. */
                         /* One could also broadcast the packet by         */
                         enet_host_broadcast(server, 0, packet);
@@ -154,12 +157,27 @@ int main(int argc, char** argv)
                         char* data = (char*)event.packet->data;
                         size_t dataLength = event.packet->dataLength;
                         Buffer newBuffer = Buffer(dataLength, data);
-                        cout << message.DeSerialize(&newBuffer) << "\n";
+                        std::string write;
+                        std::string text = message.DeSerialize(&newBuffer);
+                        if (text.find("SETUSER: ") != std::string::npos) { //If user just logged in
+                            std::string user = text.substr(9, text.size());
+                            cout << "USER " << user << " has logged in.\n";
+                            write = "Successfully logged in.\n";
+                        }
+                        else {
+                            textLog += text +"\n";
+                            cout << text << "\n";
+                            write = textLog;
+                        }
+                        message.message = write;
+                        newBuffer = *message.Serialize();
 
-                  /*      cout << "A packet of length "
-                            << event.packet->dataLength << endl
-                            << "containing " << (char*)event.packet->data
-                            << endl;*/
+                        //Send back info
+                        ENetPacket* packet = enet_packet_create(newBuffer.data,
+                            newBuffer.dataSize,
+                            ENET_PACKET_FLAG_RELIABLE);
+                        enet_host_broadcast(server, 0, packet);
+                        enet_host_flush(server);
 
                         /* Clean up the packet now that we're done using it. */
                         enet_packet_destroy(event.packet);
@@ -216,7 +234,7 @@ int main(int argc, char** argv)
                 cout << "Connection to 127.0.0.1:1234 failed." << endl;
             }
 
-            std::thread outputThread(ServerOuput);
+            std::thread outputThread(ServerOuput, std::ref(thisUser));
             std::thread inputThread(ClientInput, std::ref(thisUser), client);
             outputThread.join();
             inputThread.join();               
